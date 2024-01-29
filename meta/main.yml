@@ -1,0 +1,19 @@
+---
+
+galaxy_info:
+  role_name: "docker-nginx-proxy"
+  author: "Sebastian Plocek"
+  description: "Clones the GitHub Repo sebastian13/docker-compose-nginx-proxy and starts a nginx proxy on docker."
+  company: "PG IT Consulting eG"
+  license: "Apache-2.0"
+  min_ansible_version: 2.1
+
+  platforms:
+    - name: "Debian"
+      versions:
+        - "bullseye"
+
+  galaxy_tags:
+    - "containers"
+    - "compose"
+    - "docker"
