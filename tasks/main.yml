@@ -1,0 +1,70 @@
+---
+
+- name: Install dependencies
+  apt: pkg=git,moreutils state=latest
+  become: true
+
+- name: Check git for updates on docker-compose-nginx-proxy
+  git:
+    repo: 'https://github.com/sebastian13/docker-compose-nginx-proxy.git'
+    dest: /docker/00-nginx-proxy
+    force: yes
+
+- name: Install Requirement
+  apt:
+    name: ['python3-openssl']
+  become: true
+
+- file:
+    path: /docker/00-nginx-proxy/ssl/test
+    state: directory
+
+- openssl_privatekey:
+    path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
+
+# Generate an OpenSSL Certificate Signing Request
+- openssl_csr:
+    path: /docker/00-nginx-proxy/ssl/test/selfsigned.csr
+    privatekey_path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
+    common_name: localhost
+
+- name: Generate a Self Signed OpenSSL certificate
+  openssl_certificate:
+    path: /docker/00-nginx-proxy/ssl/test/selfsigned.crt
+    privatekey_path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
+    csr_path: /docker/00-nginx-proxy/ssl/test/selfsigned.csr
+    provider: selfsigned
+    state: present
+
+- name: Generate Diffie-Hellman
+  openssl_dhparam:
+    path: /docker/00-nginx-proxy/ssl/dhparams4096.pem
+    size: 4096
+    force: no
+
+- name: Creates an entry like "PATH=/opt/bin" on top of crontab
+  cron:
+    name: PATH
+    env: yes
+    job: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+- name: Create cron to renew certificates every SAT
+  cron:
+    name: "Certbot"
+    minute: "0"
+    hour: "2"
+    job: "cd /docker/00-nginx-proxy && chronic docker compose run --rm --use-aliases certbot renew && chronic docker exec nginx-proxy nginx -s reload"
+
+- name: Create Network
+  community.docker.docker_network:
+    name: www-network
+
+#
+# Disabled, as community.docker.docker_compose does 
+# not have support for docker compose v2 yet
+#
+# - name: Create and start services
+#   community.docker.docker_compose:
+#     project_src: /docker/00-nginx-proxy
+#     pull: true
+#     recreate: never
