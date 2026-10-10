@@ -2,7 +2,7 @@
 - name: Install dependencies
   ansible.builtin.apt:
     pkg: git,moreutils
-    state: latest
+    state: present
   become: true
 
 - name: Check git for updates on docker-compose-nginx-proxy
@@ -10,21 +10,26 @@
     repo: "https://github.com/sebastian13/docker-compose-nginx-proxy.git"
     dest: /docker/00-nginx-proxy
     force: true
+    version: "master"
 
 - name: Install Requirement
   ansible.builtin.apt:
     name: ["python3-openssl"]
   become: true
 
-- ansible.builtin.file:
+- name: Create directory for test certificates
+  ansible.builtin.file:
     path: /docker/00-nginx-proxy/ssl/test
     state: directory
+    mode: "0755"
 
-- community.crypto.openssl_privatekey:
+- name: Generate test private key
+  community.crypto.openssl_privatekey:
     path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
 
 # Generate an OpenSSL Certificate Signing Request
-- community.crypto.openssl_csr:
+- name: Generate test certificate signing request
+  community.crypto.openssl_csr:
     path: /docker/00-nginx-proxy/ssl/test/selfsigned.csr
     privatekey_path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
     common_name: localhost
