@@ -1,35 +1,36 @@
 ---
-
 - name: Install dependencies
-  apt: pkg=git,moreutils state=latest
+  ansible.builtin.apt:
+    pkg: git,moreutils
+    state: latest
   become: true
 
 - name: Check git for updates on docker-compose-nginx-proxy
-  git:
-    repo: 'https://github.com/sebastian13/docker-compose-nginx-proxy.git'
+  ansible.builtin.git:
+    repo: "https://github.com/sebastian13/docker-compose-nginx-proxy.git"
     dest: /docker/00-nginx-proxy
-    force: yes
+    force: true
 
 - name: Install Requirement
-  apt:
-    name: ['python3-openssl']
+  ansible.builtin.apt:
+    name: ["python3-openssl"]
   become: true
 
-- file:
+- ansible.builtin.file:
     path: /docker/00-nginx-proxy/ssl/test
     state: directory
 
-- openssl_privatekey:
+- community.crypto.openssl_privatekey:
     path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
 
 # Generate an OpenSSL Certificate Signing Request
-- openssl_csr:
+- community.crypto.openssl_csr:
     path: /docker/00-nginx-proxy/ssl/test/selfsigned.csr
     privatekey_path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
     common_name: localhost
 
 - name: Generate a Self Signed OpenSSL certificate
-  openssl_certificate:
+  community.crypto.x509_certificate:
     path: /docker/00-nginx-proxy/ssl/test/selfsigned.crt
     privatekey_path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
     csr_path: /docker/00-nginx-proxy/ssl/test/selfsigned.csr
@@ -37,19 +38,19 @@
     state: present
 
 - name: Generate Diffie-Hellman
-  openssl_dhparam:
+  community.crypto.openssl_dhparam:
     path: /docker/00-nginx-proxy/ssl/dhparams4096.pem
     size: 4096
-    force: no
+    force: false
 
 - name: Creates an entry like "PATH=/opt/bin" on top of crontab
-  cron:
+  ansible.builtin.cron:
     name: PATH
-    env: yes
+    env: true
     job: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 - name: Create cron to renew certificates every SAT
-  cron:
+  ansible.builtin.cron:
     name: "Certbot"
     minute: "0"
     hour: "2"
@@ -60,7 +61,7 @@
     name: www-network
 
 #
-# Disabled, as community.docker.docker_compose does 
+# Disabled, as community.docker.docker_compose does
 # not have support for docker compose v2 yet
 #
 # - name: Create and start services
