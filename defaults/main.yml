@@ -1,0 +1,23 @@
+---
+# Directory path and permissions
+docker_nginx_proxy_dir: "/docker/00-nginx-proxy"
+docker_nginx_proxy_dir_owner: "root"
+docker_nginx_proxy_dir_group: "docker"
+docker_nginx_proxy_dir_mode: "2775"
+
+# Git repository and user for the nginx-proxy setup
+docker_nginx_proxy_repo: "https://github.com/sebastian13/docker-compose-nginx-proxy.git"
+docker_nginx_proxy_version: "main" # Default branch for the nginx-proxy repository
+docker_nginx_proxy_user: "root"
+docker_nginx_proxy_force: false
+docker_nginx_proxy_remote: "origin"
+docker_nginx_proxy_accept_newhostkey: true
+docker_nginx_proxy_become_user: "root"
+
+# Certbot cron job settings
+docker_nginx_proxy_certbot_cron_minute: "{{ range(0, 60) | random(seed=inventory_hostname ~ '-minute') }}"
+docker_nginx_proxy_certbot_cron_hour: "{{ range(0, 6) | random(seed=inventory_hostname ~ '-hour') }}"
+
+# Docker Compose switches
+docker_nginx_proxy_create_network: true
+docker_nginx_proxy_start_compose: true

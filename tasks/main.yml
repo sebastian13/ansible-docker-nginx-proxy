@@ -1,50 +1,64 @@
 ---
-- name: Install dependencies
+# Ansible tasks for setting up Docker Nginx Proxy environment
+# Requires 'become: true'
+
+- name: Install system dependencies
   ansible.builtin.apt:
-    pkg: git,moreutils
+    name:
+      - git
+      - moreutils
+      - openssl
+      - python3-openssl
     state: present
-  become: true
+
+- name: Ensure repository directory inherits docker group permissions
+  ansible.builtin.file:
+    path: "{{ docker_nginx_proxy_dir }}"
+    state: directory
+    owner: "{{ docker_nginx_proxy_dir_owner }}"
+    group: "{{ docker_nginx_proxy_dir_group }}"
+    mode: "{{ docker_nginx_proxy_dir_mode }}"
 
 - name: Check git for updates on docker-compose-nginx-proxy
   ansible.builtin.git:
-    repo: "https://github.com/sebastian13/docker-compose-nginx-proxy.git"
-    dest: /docker/00-nginx-proxy
-    force: true
-    version: "master"
-
-- name: Install Requirement
-  ansible.builtin.apt:
-    name: ["python3-openssl"]
-  become: true
+    repo: "{{ docker_nginx_proxy_repo }}"
+    dest: "{{ docker_nginx_proxy_dir }}"
+    force: "{{ docker_nginx_proxy_force | default(false) }}"
+    version: "{{ docker_nginx_proxy_version | default('main') }}"
+    remote: "{{ docker_nginx_proxy_remote | default('origin') }}"
+    accept_newhostkey: "{{ docker_nginx_proxy_accept_newhostkey | default(true) }}"
+  become_user: "{{ docker_nginx_proxy_become_user | default('root') }}"
 
 - name: Create directory for test certificates
   ansible.builtin.file:
-    path: /docker/00-nginx-proxy/ssl/test
+    path: "{{ docker_nginx_proxy_dir }}/ssl/test"
     state: directory
-    mode: "0755"
+    owner: "{{ docker_nginx_proxy_dir_owner }}"
+    group: "{{ docker_nginx_proxy_dir_group }}"
+    mode: "{{ docker_nginx_proxy_dir_mode }}"
 
 - name: Generate test private key
   community.crypto.openssl_privatekey:
-    path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
+    path: "{{ docker_nginx_proxy_dir }}/ssl/test/selfsigned.key"
 
 # Generate an OpenSSL Certificate Signing Request
 - name: Generate test certificate signing request
   community.crypto.openssl_csr:
-    path: /docker/00-nginx-proxy/ssl/test/selfsigned.csr
-    privatekey_path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
+    path: "{{ docker_nginx_proxy_dir }}/ssl/test/selfsigned.csr"
+    privatekey_path: "{{ docker_nginx_proxy_dir }}/ssl/test/selfsigned.key"
     common_name: localhost
 
-- name: Generate a Self Signed OpenSSL certificate
+- name: Generate a self-signed OpenSSL certificate
   community.crypto.x509_certificate:
-    path: /docker/00-nginx-proxy/ssl/test/selfsigned.crt
-    privatekey_path: /docker/00-nginx-proxy/ssl/test/selfsigned.key
-    csr_path: /docker/00-nginx-proxy/ssl/test/selfsigned.csr
+    path: "{{ docker_nginx_proxy_dir }}/ssl/test/selfsigned.crt"
+    privatekey_path: "{{ docker_nginx_proxy_dir }}/ssl/test/selfsigned.key"
+    csr_path: "{{ docker_nginx_proxy_dir }}/ssl/test/selfsigned.csr"
     provider: selfsigned
     state: present
 
 - name: Generate Diffie-Hellman
   community.crypto.openssl_dhparam:
-    path: /docker/00-nginx-proxy/ssl/dhparams4096.pem
+    path: "{{ docker_nginx_proxy_dir }}/ssl/dhparams4096.pem"
     size: 4096
     force: false
 
@@ -57,20 +71,18 @@
 - name: Create cron to renew certificates every SAT
   ansible.builtin.cron:
     name: "Certbot"
-    minute: "0"
-    hour: "2"
-    job: "cd /docker/00-nginx-proxy && chronic docker compose run --rm --use-aliases certbot renew && chronic docker exec nginx-proxy nginx -s reload"
+    minute: "{{ docker_nginx_proxy_certbot_cron_minute | default((range(0, 60) | random(seed=inventory_hostname ~ '-minute'))) }}"
+    hour: "{{ docker_nginx_proxy_certbot_cron_hour | default((range(0, 6) | random(seed=inventory_hostname ~ '-hour'))) }}"
+    job: "cd {{ docker_nginx_proxy_dir }} && chronic docker compose run --rm --use-aliases certbot renew && chronic docker exec nginx-proxy nginx -s reload"
 
-- name: Create Network
+- name: Create network
   community.docker.docker_network:
     name: www-network
+  when: docker_nginx_proxy_create_network
 
-#
-# Disabled, as community.docker.docker_compose does
-# not have support for docker compose v2 yet
-#
-# - name: Create and start services
-#   community.docker.docker_compose:
-#     project_src: /docker/00-nginx-proxy
-#     pull: true
-#     recreate: never
+- name: Create and start services
+  community.docker.docker_compose_v2:
+    project_src: "{{ docker_nginx_proxy_dir }}"
+    pull: always
+    state: present
+  when: docker_nginx_proxy_start_compose
