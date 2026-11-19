@@ -25,6 +25,9 @@ docker_nginx_proxy_version: "main"
 docker_nginx_proxy_force: false
 docker_nginx_proxy_remote: "origin"
 docker_nginx_proxy_accept_newhostkey: true
+# An existing checkout of a different repository is never replaced; the role fails instead.
+# Set to true to deliberately switch to docker_nginx_proxy_repo.
+docker_nginx_proxy_allow_repo_change: false
 
 # Docker Compose behavior
 docker_nginx_proxy_create_network: true

@@ -19,6 +19,32 @@
     group: "{{ docker_nginx_proxy_dir_group }}"
     mode: "{{ docker_nginx_proxy_dir_mode }}"
 
+# ansible.builtin.git silently switches an existing checkout to a different repository when
+# docker_nginx_proxy_repo does not match its remote URL. Never replace an existing setup.
+# Reads .git/config directly, so it works regardless of the owner of the checkout.
+- name: Read remote URL of an existing checkout
+  # ansible.builtin.git cannot read the remote URL without modifying the checkout
+  ansible.builtin.command: # noqa: command-instead-of-module
+    cmd: >-
+      git config --file {{ docker_nginx_proxy_dir }}/.git/config
+      --get remote.{{ docker_nginx_proxy_remote | default('origin') }}.url
+  register: docker_nginx_proxy_current_repo
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Stop if the existing checkout uses a different repository
+  ansible.builtin.assert:
+    that: >-
+      docker_nginx_proxy_current_repo.rc != 0
+      or docker_nginx_proxy_current_repo.stdout == docker_nginx_proxy_repo
+      or docker_nginx_proxy_allow_repo_change | bool
+    fail_msg: >-
+      {{ docker_nginx_proxy_dir }} is a checkout of {{ docker_nginx_proxy_current_repo.stdout }},
+      but docker_nginx_proxy_repo is {{ docker_nginx_proxy_repo }}. Set docker_nginx_proxy_repo for this host,
+      or set docker_nginx_proxy_allow_repo_change to true to replace the existing setup.
+    quiet: true
+
 - name: Check git for updates on docker-compose-nginx-proxy
   ansible.builtin.git:
     repo: "{{ docker_nginx_proxy_repo }}"
@@ -27,6 +53,7 @@
     version: "{{ docker_nginx_proxy_version | default('main') }}"
     remote: "{{ docker_nginx_proxy_remote | default('origin') }}"
     accept_newhostkey: "{{ docker_nginx_proxy_accept_newhostkey | default(true) }}"
+  become: true
   become_user: "{{ docker_nginx_proxy_become_user | default('root') }}"
 
 - name: Create directory for test certificates

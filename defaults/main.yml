@@ -11,6 +11,8 @@ docker_nginx_proxy_version: "main" # Default branch for the nginx-proxy reposito
 docker_nginx_proxy_user: "root"
 docker_nginx_proxy_force: false
 docker_nginx_proxy_remote: "origin"
+# Allow switching an existing checkout to a different docker_nginx_proxy_repo (replaces the setup)
+docker_nginx_proxy_allow_repo_change: false
 docker_nginx_proxy_accept_newhostkey: true
 docker_nginx_proxy_become_user: "root"
 
